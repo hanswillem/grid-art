@@ -1,0 +1,14 @@
+html,
+body {
+  background-color: black;
+  margin: 0;
+  padding: 12px 0 0 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+
+canvas {
+  display: block;
+}

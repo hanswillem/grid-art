@@ -55,7 +55,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 -1px;
+  margin: 0 -1px 0 0;
 }
 button:hover:not(:disabled)          { background: white; color: black; }
 button.active                        { background: white; color: black; }
@@ -76,7 +76,7 @@ button:disabled                      { opacity: 0.35; cursor: not-allowed; }
   height: 100%;
   flex-shrink: 0;
   transition: background 0.1s, color 0.1s;
-  margin: 0 -1px;
+  margin: 0 -1px 0 0;
   gap: 4px;
 }
 #fps-group:hover                       { background: white; color: black; }
@@ -144,7 +144,7 @@ button:disabled                      { opacity: 0.35; cursor: not-allowed; }
   height: 100%;
   display: flex;
   align-items: center;
-  margin: 0 -1px;
+  margin: 0 -1px 0 0;
 }
 .opacity-slider {
   -webkit-appearance: none;

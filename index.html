@@ -5,10 +5,40 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="style.css">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <meta charset="utf-8">
-  <title>Grid Art</title>
+    <meta charset="utf-8">
+    <title>Grid Art</title>
   </head>
   <body>
+    <div id="app">
+      <div id="top-bar">
+        <button id="clear-btn">Clear Frame</button>
+        <button id="guides-btn">Show Guides</button>
+        <button id="upload-btn">Upload IMG</button>
+        <span id="opacity-label" style="display:none">Opacity</span>
+        <input type="range" id="opacity-slider" class="opacity-slider" min="0" max="100" value="100" style="display:none">
+        <input type="file" id="file-input" accept="image/*" multiple style="display:none">
+      </div>
+      <!-- p5 canvas inserted here by setup() -->
+      <div id="bottom-bar">
+        <button id="onion-btn">Onion Skinning</button>
+        <div id="fps-group">
+          <input type="number" id="fps-input" min="1" max="99" value="6">
+          <span id="fps-label">&thinsp;FPS</span>
+        </div>
+        <button id="play-btn">
+          <svg class="icon-play" width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M32 22.5L14 32.8923L14 12.1077L32 22.5Z" fill="currentColor"/>
+          </svg>
+          <svg class="icon-pause" width="45" height="45" viewBox="0 0 45 45" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="14" y="12.5" width="6" height="20" fill="currentColor"/>
+            <rect x="24" y="12.5" width="6" height="20" fill="currentColor"/>
+          </svg>
+        </button>
+        <div id="frame-strip"></div>
+        <button id="add-frame-btn">+</button>
+        <button id="export-btn">Export</button>
+      </div>
+    </div>
     <script src="sketch.js"></script>
     <script src="particle.js"></script>
   </body>

@@ -1,14 +1,173 @@
-html,
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  background-color: black;
+  overflow: hidden;
+}
+
 body {
   background-color: black;
-  margin: 0;
-  padding: 12px 0 0 0;
+  padding: 12px 24px 24px 24px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  overflow: hidden;
+  user-select: none;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+  color: white;
 }
 
+#app {
+  display: flex;
+  flex-direction: column;
+}
 
-canvas {
-  display: block;
+canvas { display: block; flex-shrink: 0; }
+
+/* ── Bars ──────────────────────────────────── */
+#top-bar,
+#bottom-bar {
+  height: 45px;
+  background: black;
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+/* ── Buttons ───────────────────────────────── */
+button {
+  background: black;
+  border: none;
+  outline: 1px solid white;
+  outline-offset: -1px;
+  color: white;
+  padding: 0 10px;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 -1px;
+}
+button:hover:not(:disabled)          { background: white; color: black; }
+button.active                        { background: white; color: black; }
+button.just-deactivated:hover        { background: black; color: white; }
+button:disabled                      { opacity: 0.35; cursor: not-allowed; }
+
+/* ── FPS group ─────────────────────────────── */
+#fps-group {
+  display: flex;
+  align-items: center;
+  outline: 1px solid white;
+  outline-offset: -1px;
+  padding: 0 10px;
+  color: white;
+  cursor: pointer;
+  height: 100%;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+  margin: 0 -1px;
+  gap: 0;
+}
+#fps-group:hover                       { background: white; color: black; }
+#fps-group:hover #fps-input,
+#fps-group:hover #fps-label            { color: black; }
+#fps-group:focus-within               { background: black; }
+#fps-group:focus-within #fps-input,
+#fps-group:focus-within #fps-label    { color: white; }
+
+#fps-input {
+  background: transparent;
+  border: none;
+  color: white;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 12px;
+  field-sizing: content;
+  min-width: 8px;
+  width: 2ch;
+  text-align: right;
+  outline: none;
+  padding: 0;
+  caret-color: white;
+  -moz-appearance: textfield;
+}
+#fps-input::-webkit-inner-spin-button,
+#fps-input::-webkit-outer-spin-button { display: none; }
+#fps-label { pointer-events: none; }
+
+/* ── Play button ───────────────────────────── */
+#play-btn { width: 45px; padding: 0; }
+#play-btn svg          { pointer-events: none; }
+#play-btn .icon-pause  { display: none; }
+#play-btn.playing .icon-play  { display: none; }
+#play-btn.playing .icon-pause { display: block; }
+
+/* ── Frame strip ───────────────────────────── */
+#frame-strip { display: flex; align-items: stretch; }
+
+.frame-tab {
+  width: 45px;
+  padding: 0;
+  position: relative;
+}
+.tab-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 9px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  line-height: 1;
+}
+.frame-tab:hover .tab-del { opacity: 1; pointer-events: auto; }
+
+#add-frame-btn { width: 45px; padding: 0; }
+
+/* ── Opacity area ──────────────────────────── */
+#opacity-label {
+  padding: 0 8px;
+  align-self: center;
+  pointer-events: none;
+  flex-shrink: 0;
+  outline: 1px solid white;
+  outline-offset: -1px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  margin: 0 -1px;
+}
+.opacity-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+  margin: 0 8px;
+  width: 100px;
+  flex-shrink: 0;
+  align-self: center;
+}
+.opacity-slider::-webkit-slider-runnable-track { height: 1px; background: white; }
+.opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: white;
+  margin-top: -4.5px;
+}
+.opacity-slider::-moz-range-track { height: 1px; background: white; border: none; }
+.opacity-slider::-moz-range-thumb {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: white;
+  border: none;
 }

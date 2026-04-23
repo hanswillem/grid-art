@@ -1,13 +1,11 @@
 // ---- Animation constants ----
-const BTN_H    = 45;
 const GRID_H   = 1080;
-const BTN_PAD  = 10;
 const ANIM_FONT = "'Roboto Mono', monospace";
 
 // ---- State ----
 let grid, gridSize, gridRows, cs, gridOffX, gridOffY;
 let eraserDown, eraserMode, shiftDown, sKeyDown, hKeyDown;
-let lineStartI, lineStartJ, lineAxis; // straight-line constraint (Shift)
+let lineStartI, lineStartJ, lineAxis;
 let panAccX, panAccY, panMoved;
 let brush, brushes, ns;
 let undoStack, sizes;
@@ -16,20 +14,11 @@ let selectionMode;
 // Animation
 let frames, currentFrame, frameUndoStacks;
 let isPlaying, fps, playElapsed;
-let showOnionSkin, onionJustToggled;
-let showGuides, guidesJustToggled;
+let showOnionSkin;
+let showGuides;
 
-// Top bar
-let fileInput, opacitySlider;
+// Image refs
 let refImages, hasImages, imgOpacity;
-let hitClearFrame, hitShowGuides, hitUpload;
-
-// Bottom bar hit areas
-let hitOnion, hitFPS, hitPlay, hitPlus, hitExport;
-let hitFramesBtns, hitFrameDeleteBtns;
-
-// FPS HTML overlay
-let fpsOverlay, fpsInput, fpsFocused;
 
 // ---- Setup ----
 function setup() {
@@ -37,12 +26,15 @@ function setup() {
   gridSize = sizes[3];
   cs       = 1920 / gridSize;
   gridOffX = 2 * cs;
-  gridOffY = BTN_H + floor(cs / 2);
+  gridOffY = floor(cs / 2);
 
-  createCanvas(1920 + gridOffX, gridOffY + GRID_H + floor(cs / 2) + BTN_H);
+  let cnv = createCanvas(1920 + gridOffX, gridOffY + GRID_H + floor(cs / 2));
+  // Move p5 canvas into #app, between top-bar and bottom-bar
+  document.getElementById('app').insertBefore(cnv.elt, document.getElementById('bottom-bar'));
+  _applyCanvasCSS();
 
   document.addEventListener('keydown', e => {
-    if (fpsFocused) return;
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
 
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault(); applyUndo(); return;
@@ -52,12 +44,7 @@ function setup() {
     }
     if (e.key === ' ') {
       e.preventDefault();
-      if (!isPlaying) {
-        frames[currentFrame] = captureGrid();
-        frameUndoStacks[currentFrame] = undoStack;
-      }
-      isPlaying = !isPlaying;
-      playElapsed = 0;
+      togglePlay();
       return;
     }
     if (e.key === 'ArrowLeft')  { e.preventDefault(); switchFrame(currentFrame - 1); return; }
@@ -66,7 +53,7 @@ function setup() {
       e.preventDefault();
       if (!isPlaying) {
         if (frames.length > 1) deleteFrame(currentFrame);
-        else { clearGrid(); pushUndo(); refImages = []; hasImages = false; }
+        else { clearGrid(); pushUndo(); refImages = []; hasImages = false; _updateImageToolbar(); }
       }
       return;
     }
@@ -87,7 +74,6 @@ function setup() {
   brush = "RECTANGLE";
   selectionMode = false;
 
-  // Animation init
   frames          = [captureGrid()];
   currentFrame    = 0;
   frameUndoStacks = [undoStack];
@@ -95,310 +81,182 @@ function setup() {
   fps             = 6;
   playElapsed     = 0;
   showOnionSkin   = false;
-  onionJustToggled = false;
-  showGuides       = false;
-  guidesJustToggled = false;
-  fpsFocused      = false;
+  showGuides      = false;
 
   refImages = []; hasImages = false; imgOpacity = 255;
-  hitClearFrame = hitShowGuides = hitUpload = null;
-  hitOnion = hitFPS = hitPlay = hitPlus = hitExport = null;
-  hitFramesBtns       = [];
-  hitFrameDeleteBtns  = [];
 
-  _createFPSOverlay();
-  _createTopBarElements();
+  _setupHTML();
+  buildStrip();
 }
 
-function _createFPSOverlay() {
-  fpsOverlay = document.createElement('div');
-  fpsOverlay.style.cssText = [
-    'display:none',
-    'position:absolute',
-    'z-index:10',
-    'background:#000000',
-    'border:1px solid #ffffff',
-    'box-sizing:border-box',
-    'align-items:center',
-    'justify-content:center',
-    'gap:0'
-  ].join(';');
-  document.body.appendChild(fpsOverlay);
+// ---- HTML glue ----
+function _setupHTML() {
+  let fileInput = document.getElementById('file-input');
+  fileInput.addEventListener('change', () => {
+    if (!fileInput.files || !fileInput.files.length) return;
+    _loadImageFiles(Array.from(fileInput.files));
+    fileInput.value = '';
+  });
 
-  fpsInput = document.createElement('input');
-  fpsInput.type = 'text';
-  fpsInput.maxLength = 2;
-  fpsInput.style.cssText = [
-    'background:transparent',
-    'color:#ffffff',
-    'caret-color:#ffffff',
-    "font-family:'Roboto Mono',monospace",
-    'font-size:12px',
-    'border:none',
-    'outline:none',
-    'padding:0',
-    'margin:0',
-    'width:2ch',
-    'text-align:right',
-    'min-width:0'
-  ].join(';');
-  fpsOverlay.appendChild(fpsInput);
-
-  let fpsSuffix = document.createElement('span');
-  fpsSuffix.textContent = '\u2009FPS';
-  fpsSuffix.style.cssText = [
-    'color:#ffffff',
-    "font-family:'Roboto Mono',monospace",
-    'font-size:12px',
-    'pointer-events:none',
-    'user-select:none',
-    'white-space:pre'
-  ].join(';');
-  fpsOverlay.appendChild(fpsSuffix);
-
-  fpsInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); commitFPS(); return; }
-    if (!/^[0-9]$/.test(e.key) &&
-        !['Backspace','Delete','ArrowLeft','ArrowRight','Tab'].includes(e.key) &&
-        !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
+  document.getElementById('clear-btn').addEventListener('click', () => {
+    clearGrid(); pushUndo();
+  });
+  document.getElementById('guides-btn').addEventListener('click', () => {
+    showGuides = !showGuides;
+    let btn = document.getElementById('guides-btn');
+    btn.classList.toggle('active', showGuides);
+    if (!showGuides) _deactivateBtn(btn);
+    else btn.classList.remove('just-deactivated');
+  });
+  document.getElementById('upload-btn').addEventListener('click', () => {
+    if (hasImages) {
+      refImages = []; hasImages = false; _updateImageToolbar();
+    } else {
+      document.getElementById('file-input').click();
     }
   });
-  fpsInput.addEventListener('blur', commitFPS);
-}
-
-// Returns the canvas element's top-left position in viewport/page space.
-// Needed because the canvas is CSS-centered, so p5 canvas coords ≠ viewport coords.
-function canvasScreenOffset() {
-  let el = document.querySelector('canvas');
-  let r  = el.getBoundingClientRect();
-  return { x: r.left + window.scrollX, y: r.top + window.scrollY };
-}
-
-function _createTopBarElements() {
-  // Hidden file input
-  fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.multiple = true;
-  fileInput.accept = 'image/*';
-  fileInput.style.display = 'none';
-  document.body.appendChild(fileInput);
-  fileInput.addEventListener('change', _onFilesSelected);
-
-  // Inject CSS for the opacity range slider — thin white track, round white thumb
-  let sliderStyle = document.createElement('style');
-  sliderStyle.textContent = [
-    'input[type="range"].opacity-slider {',
-    '  -webkit-appearance: none;',
-    '  appearance: none;',
-    '  background: transparent;',
-    '  cursor: pointer;',
-    '  outline: none;',
-    '  padding: 0;',
-    '  margin: 0;',
-    '}',
-    'input[type="range"].opacity-slider::-webkit-slider-runnable-track {',
-    '  height: 1px;',
-    '  background: #ffffff;',
-    '  border: none;',
-    '}',
-    'input[type="range"].opacity-slider::-webkit-slider-thumb {',
-    '  -webkit-appearance: none;',
-    '  width: 10px;',
-    '  height: 10px;',
-    '  border-radius: 50%;',
-    '  background: #ffffff;',
-    '  margin-top: -4.5px;',
-    '}',
-    'input[type="range"].opacity-slider::-moz-range-track {',
-    '  height: 1px;',
-    '  background: #ffffff;',
-    '  border: none;',
-    '}',
-    'input[type="range"].opacity-slider::-moz-range-thumb {',
-    '  width: 10px;',
-    '  height: 10px;',
-    '  border-radius: 50%;',
-    '  background: #ffffff;',
-    '  border: none;',
-    '}'
-  ].join('\n');
-  document.head.appendChild(sliderStyle);
-
-  // Opacity slider — shown to the right of Upload IMG when images are loaded
-  opacitySlider = document.createElement('input');
-  opacitySlider.type = 'range';
-  opacitySlider.min = '0';
-  opacitySlider.max = '100';
-  opacitySlider.value = '100';
-  opacitySlider.className = 'opacity-slider';
-  opacitySlider.style.cssText = 'display:none;position:absolute;z-index:10;width:100px;';
-  document.body.appendChild(opacitySlider);
-  opacitySlider.addEventListener('input', () => {
-    imgOpacity = map(parseInt(opacitySlider.value), 0, 100, 0, 255);
+  document.getElementById('opacity-slider').addEventListener('input', e => {
+    imgOpacity = map(parseInt(e.target.value), 0, 100, 0, 255);
+  });
+  document.getElementById('onion-btn').addEventListener('click', () => {
+    showOnionSkin = !showOnionSkin;
+    let btn = document.getElementById('onion-btn');
+    btn.classList.toggle('active', showOnionSkin);
+    if (!showOnionSkin) _deactivateBtn(btn);
+    else btn.classList.remove('just-deactivated');
   });
 
-  // Drag-and-drop
+  let fpsInput = document.getElementById('fps-input');
+  fpsInput.addEventListener('change', () => {
+    let v = parseInt(fpsInput.value);
+    if (!isNaN(v) && v >= 1 && v <= 99) fps = v;
+    fpsInput.value = fps;
+  });
+  fpsInput.addEventListener('focus', () => fpsInput.select());
+  document.getElementById('fps-group').addEventListener('click', () => fpsInput.focus());
+
+  document.getElementById('play-btn').addEventListener('click', togglePlay);
+  document.getElementById('add-frame-btn').addEventListener('click', addFrame);
+  document.getElementById('export-btn').addEventListener('click', exportFrames);
+
   document.addEventListener('dragover', e => e.preventDefault());
   document.addEventListener('drop', e => {
     e.preventDefault();
-    let imageFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    if (imageFiles.length) _loadImageFiles(imageFiles);
+    let imgs = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (imgs.length) _loadImageFiles(imgs);
   });
-
-  // Paste
   document.addEventListener('paste', e => {
-    if (fpsFocused) return;
-    let imageFiles = Array.from(e.clipboardData.items)
-      .filter(item => item.type.startsWith('image/'))
-      .map(item => item.getAsFile())
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    let imgs = Array.from(e.clipboardData.items)
+      .filter(i => i.type.startsWith('image/'))
+      .map(i => i.getAsFile())
       .filter(Boolean);
-    if (imageFiles.length) _loadImageFiles(imageFiles);
+    if (imgs.length) _loadImageFiles(imgs);
   });
 }
 
-function _onFilesSelected() {
-  let files = fileInput.files;
-  if (!files || !files.length) return;
-  _loadImageFiles(Array.from(files));
-  fileInput.value = '';
+function _updateImageToolbar() {
+  document.getElementById('upload-btn').textContent = hasImages ? 'Remove IMG' : 'Upload IMG';
+  let lbl = document.getElementById('opacity-label');
+  let sl  = document.getElementById('opacity-slider');
+  lbl.style.display = hasImages ? 'flex' : 'none';
+  sl.style.display  = hasImages ? ''     : 'none';
+  if (hasImages) sl.value = Math.round(imgOpacity / 255 * 100);
 }
 
-function _loadImageFiles(fileList) {
-  let count = fileList.length, imgs = new Array(count), loaded = 0;
-  for (let i = 0; i < count; i++) {
-    ((idx) => loadImage(URL.createObjectURL(fileList[idx]), img => {
-      imgs[idx] = img;
-      if (++loaded === count) {
-        refImages = imgs;
-        hasImages = true;
-        imgOpacity = 255;
-        opacitySlider.value = '100';
-        // Ensure enough frames exist for each image, then go to frame 0
-        let need = min(count, 24);
-        while (frames.length < need) addFrame();
-        switchFrame(0);
-      }
-    }))(i);
-  }
-}
-
-// ---- Top bar ----
-function drawTopBar() {
-  textFont(ANIM_FONT);
-  textSize(12);
-  let barY = 0;
-  let x    = gridOffX;
-
-  let clearW  = ceil(textWidth('Clear Frame')  + BTN_PAD * 2);
-  let guidesW = ceil(textWidth('Show Guides')  + BTN_PAD * 2);
-  let uploadW = ceil(max(textWidth('Upload IMG'), textWidth('Remove IMG')) + BTN_PAD * 2);
-
-  let uploadLabel = hasImages ? 'Remove IMG' : 'Upload IMG';
-
-  let btns = [
-    { label: 'Clear Frame', x,                      w: clearW,  active: false,      ref: 'clear'  },
-    { label: 'Show Guides', x: x + clearW,           w: guidesW, active: showGuides, ref: 'guides' },
-    { label: uploadLabel,   x: x + clearW + guidesW, w: uploadW, active: false,      ref: 'upload' },
-  ];
-  for (let b of btns) { b.y = barY; }
-
-  for (let b of btns) {
-    let inB = mouseX >= b.x && mouseX < b.x + b.w && mouseY >= barY && mouseY < barY + BTN_H;
-    if (b.ref === 'guides') {
-      if (!inB) guidesJustToggled = false;
-      b.hov = inB && !guidesJustToggled;
-    } else {
-      b.hov = inB;
+function buildStrip() {
+  let strip = document.getElementById('frame-strip');
+  strip.innerHTML = '';
+  for (let i = 0; i < frames.length; i++) {
+    let tab = document.createElement('button');
+    tab.className = 'frame-tab' + (i === currentFrame ? ' active' : '');
+    tab.dataset.idx = i;
+    tab.title = 'Frame ' + (i + 1);
+    let num = document.createElement('span');
+    num.textContent = i + 1;
+    tab.appendChild(num);
+    if (frames.length > 1) {
+      let del = document.createElement('span');
+      del.className = 'tab-del';
+      del.textContent = '×';
+      del.title = 'Delete frame';
+      del.addEventListener('click', ev => { ev.stopPropagation(); deleteFrame(i); });
+      tab.appendChild(del);
     }
+    tab.addEventListener('click', () => { if (!isPlaying) switchFrame(i); });
+    strip.appendChild(tab);
   }
-
-  hitClearFrame = { x: btns[0].x, y: barY, w: btns[0].w, h: BTN_H };
-  hitShowGuides = { x: btns[1].x, y: barY, w: btns[1].w, h: BTN_H };
-  hitUpload     = { x: btns[2].x, y: barY, w: btns[2].w, h: BTN_H };
-
-  for (let b of btns) {
-    textBtn_BW(b.x, b.y, b.w, BTN_H, b.label, b.active, b.hov && !b.active);
-  }
-
-  // Opacity area — flush to the right of Upload IMG, only when images are loaded
-  if (hasImages) {
-    let areaX    = btns[2].x + uploadW;
-    let sliderW  = 120;
-    let labelTxt = 'Opacity';
-    let labelW   = ceil(textWidth(labelTxt));
-    let rightPad = BTN_PAD + 8;
-    let areaW    = BTN_PAD + labelW + 8 + sliderW + rightPad;
-
-    // Black background
-    noStroke(); fill(0);
-    rect(areaX, barY, areaW, BTN_H);
-
-    // White outline rect — matches inactive button style
-    noFill(); stroke(255); strokeWeight(1);
-    rect(areaX + 0.5, barY + 0.5, areaW - 1, BTN_H - 1);
-    noStroke();
-
-    // "Opacity" label
-    fill(255); noStroke();
-    textFont(ANIM_FONT); textSize(12);
-    textAlign(LEFT, CENTER);
-    text(labelTxt, areaX + BTN_PAD, barY + BTN_H / 2);
-    textAlign(LEFT, BASELINE);
-
-    // HTML slider
-    let off      = canvasScreenOffset();
-    let sliderX  = areaX + BTN_PAD + labelW + 8;
-    let thumbR   = 5;
-    opacitySlider.style.display = 'block';
-    opacitySlider.style.width   = sliderW + 'px';
-    opacitySlider.style.left    = (sliderX + off.x) + 'px';
-    opacitySlider.style.top     = (barY + BTN_H / 2 - thumbR + off.y) + 'px';
-    opacitySlider.style.height  = (thumbR * 2) + 'px';
-  } else {
-    opacitySlider.style.display = 'none';
-  }
+  document.getElementById('add-frame-btn').disabled = frames.length >= 24;
 }
 
-function commitFPS() {
-  let v = parseInt(fpsInput.value);
-  if (!isNaN(v) && v >= 1 && v <= 99) fps = v;
-  fpsOverlay.style.display = 'none';
-  fpsFocused = false;
+function _highlightActiveFrame() {
+  document.querySelectorAll('.frame-tab').forEach(el => {
+    el.classList.toggle('active', parseInt(el.dataset.idx) === currentFrame);
+  });
+}
+
+function togglePlay() {
+  if (!isPlaying) {
+    frames[currentFrame]          = captureGrid();
+    frameUndoStacks[currentFrame] = undoStack;
+  }
+  isPlaying = !isPlaying;
+  playElapsed = 0;
+  document.getElementById('play-btn').classList.toggle('playing', isPlaying);
+}
+
+// ---- CSS scaling (canvas only, bars are fixed HTML) ----
+function _applyCanvasCSS() {
+  let el = document.querySelector('canvas');
+  let ar = width / height;
+  let availW = window.innerWidth - 48; // 24px left + 24px right body padding
+  let availH = window.innerHeight - 12 - 45 - 45 - 24; // body padding-top + top-bar + bottom-bar + padding-bottom
+  let targetW = Math.min(width, availW, availH * ar);
+  let targetH = Math.round(targetW / ar);
+  el.style.width  = Math.round(targetW) + 'px';
+  el.style.height = targetH + 'px';
+  // Align bar content with the grid (offset past the brush panel)
+  let pl = Math.round(gridOffX * (targetW / width)) + 'px';
+  document.getElementById('top-bar').style.paddingLeft    = pl;
+  document.getElementById('bottom-bar').style.paddingLeft = pl;
+}
+
+function _deactivateBtn(btn) {
+  btn.classList.add('just-deactivated');
+  btn.addEventListener('mouseleave', () => btn.classList.remove('just-deactivated'), { once: true });
+}
+
+function windowResized() {
+  _applyCanvasCSS();
 }
 
 // ---- Main draw ----
 function draw() {
   background(0);
 
-  // Advance playback
   if (isPlaying) {
     playElapsed += deltaTime;
     if (playElapsed >= 1000 / fps) {
       currentFrame = (currentFrame + 1) % frames.length;
-      undoStack = frameUndoStacks[currentFrame];
+      undoStack    = frameUndoStacks[currentFrame];
       restoreGrid(frames[currentFrame]);
       playElapsed -= 1000 / fps;
+      _highlightActiveFrame();
     }
   }
 
   drawGrid();
   if (showGuides) drawGuides();
 
-  if (mouseIsPressed && !hKeyDown && !isPlaying &&
-      getToolbarIndex() < 0 && !inBottomBar(mouseX, mouseY) && !inTopBar(mouseX, mouseY)) {
+  if (mouseIsPressed && !hKeyDown && !isPlaying && getToolbarIndex() < 0) {
     drawCell();
   }
 
   drawBrushBar();
-  drawTopBar();
-  drawBottomBar();
 
   if (hKeyDown) {
     cursor(mouseIsPressed ? 'grabbing' : 'grab');
   } else if (getToolbarIndex() >= 0) {
-    cursor(ARROW);
-  } else if (inBottomBar(mouseX, mouseY) || inTopBar(mouseX, mouseY)) {
     cursor(ARROW);
   } else if (mouseX >= gridOffX && mouseX < width && mouseY >= gridOffY && mouseY < gridOffY + GRID_H) {
     noCursor();
@@ -414,17 +272,18 @@ function scaleGrid(n) {
   gridSize = sizes[i];
   cs       = 1920 / gridSize;
   gridOffX = 2 * cs;
-  gridOffY = BTN_H + floor(cs / 2);
+  gridOffY = floor(cs / 2);
   gridRows = floor(GRID_H / cs);
-  resizeCanvas(1920 + gridOffX, gridOffY + GRID_H + floor(cs / 2) + BTN_H);
+  resizeCanvas(1920 + gridOffX, gridOffY + GRID_H + floor(cs / 2));
+  _applyCanvasCSS();
   grid = createGridArray(gridSize, gridRows);
   ns   = createNoise();
   undoStack = [];
   pushUndo();
-  // Reset animation to single blank frame
   frames          = [captureGrid()];
   currentFrame    = 0;
   frameUndoStacks = [undoStack];
+  buildStrip();
 }
 
 // --------------------------------------------------------------
@@ -485,10 +344,8 @@ function drawGuides() {
   drawingContext.setLineDash([1, 8]);
   stroke(255);
   strokeWeight(1);
-  // Vertical — dot at midY: (midY) mod 9 must = 0; offset set accordingly
   drawingContext.lineDashOffset = (9 - (midY % 9)) % 9;
   line(midX, gridOffY, midX, gridOffY + GRID_H);
-  // Horizontal — dot at midX: distance from gridOffX is 960, 960 mod 9 = 6, offset = 3
   drawingContext.lineDashOffset = 3;
   line(gridOffX, midY, width, midY);
   drawingContext.setLineDash([]);
@@ -497,7 +354,6 @@ function drawGuides() {
 }
 
 function drawGrid() {
-  // Reference image(s) behind the grid
   if (hasImages && refImages.length > 0) {
     let img = refImages[min(currentFrame, refImages.length - 1)];
     if (img) {
@@ -511,7 +367,6 @@ function drawGrid() {
     }
   }
 
-  // Onion skin: ghost previous frame at low opacity
   if (showOnionSkin && !isPlaying && currentFrame > 0) {
     let prevSnap = frames[currentFrame - 1];
     push();
@@ -546,14 +401,12 @@ function getCellUnderMouse() {
 }
 
 function drawCell() {
-  // S held or persistent selection mode — mark hovered cell as selected
   if (sKeyDown || selectionMode) {
     let cell = getCellUnderMouse();
     if (cell && cell.on) cell.selected = true;
     return;
   }
 
-  // Shift held — constrain drawing to a straight horizontal or vertical line
   if (shiftDown) {
     let rawCi = floor((mouseX - gridOffX) / cs);
     let rawCj = floor((mouseY - gridOffY) / cs);
@@ -573,7 +426,6 @@ function drawCell() {
     return;
   }
 
-  // Normal drawing
   let cell = getCellUnderMouse();
   if (!cell) return;
   if (eraserDown || eraserMode) { cell.on = false; return; }
@@ -770,12 +622,10 @@ function drawBrushBar() {
 // --------------------------------------------------------------
 
 function drawCursor() {
-  // Compute raw grid coords from mouse
   let rawCi = floor((mouseX - gridOffX) / cs);
   let rawCj = floor((mouseY - gridOffY) / cs);
   if (rawCi < 0 || rawCi >= gridSize || rawCj < 0 || rawCj >= gridRows) return;
 
-  // Apply straight-line constraint when Shift is held and axis is locked
   let ci = rawCi, cj = rawCj;
   if (shiftDown && lineAxis !== null && lineStartI >= 0) {
     ci = lineAxis === "V" ? lineStartI : rawCi;
@@ -935,6 +785,7 @@ function switchFrame(newIdx) {
   undoStack    = frameUndoStacks[currentFrame];
   restoreGrid(frames[currentFrame]);
   clearSelection();
+  _highlightActiveFrame();
 }
 
 function addFrame() {
@@ -949,6 +800,7 @@ function addFrame() {
   undoStack    = frameUndoStacks[currentFrame];
   restoreGrid(frames[currentFrame]);
   pushUndo();
+  buildStrip();
 }
 
 function deleteFrame(idx) {
@@ -960,6 +812,7 @@ function deleteFrame(idx) {
   undoStack    = frameUndoStacks[currentFrame];
   restoreGrid(frames[currentFrame]);
   clearSelection();
+  buildStrip();
 }
 
 function duplicateFrame(idx) {
@@ -974,163 +827,7 @@ function duplicateFrame(idx) {
   undoStack    = frameUndoStacks[currentFrame];
   restoreGrid(frames[currentFrame]);
   pushUndo();
-}
-
-// --------------------------------------------------------------
-// BOTTOM BAR
-// --------------------------------------------------------------
-
-function inTopBar(mx, my) {
-  return my >= 0 && my < BTN_H;
-}
-
-function inBottomBar(mx, my) {
-  let barY = gridOffY + GRID_H + floor(cs / 2);
-  return my >= barY && my < barY + BTN_H;
-}
-
-function _hitTest(r, mx, my) {
-  return r && mx >= r.x && mx < r.x + r.w && my >= r.y && my < r.y + r.h;
-}
-
-// B&W button: black bg + white inner stroke when off; white bg, no stroke when on.
-function drawBtn_BW(x, y, w, h, active, hovered, drawContent) {
-  let on = active || hovered;
-  noStroke();
-  fill(on ? 255 : 0);
-  rect(x, y, w, h);
-  if (!on) {
-    noFill(); stroke(255); strokeWeight(1);
-    rect(x + 0.5, y + 0.5, w - 1, h - 1);
-    noStroke();
-  }
-  if (drawContent) drawContent(on);
-}
-
-function textBtn_BW(x, y, w, h, label, active, hovered) {
-  drawBtn_BW(x, y, w, h, active, hovered, (on) => {
-    fill(on ? 0 : 255);
-    noStroke();
-    textFont(ANIM_FONT);
-    textSize(12);
-    textAlign(CENTER, CENTER);
-    text(label, x + w / 2, y + h / 2);
-  });
-}
-
-function drawBottomBar() {
-  textFont(ANIM_FONT);
-  textSize(12);
-
-  let barY = gridOffY + GRID_H + floor(cs / 2);
-  let x    = gridOffX;
-
-  // Widths
-  let onionW  = ceil(textWidth("Onion Skinning") + BTN_PAD * 2);
-  let fpsW    = ceil(textWidth("00 FPS") + BTN_PAD * 2);
-  let playW   = BTN_H;
-  let frameW  = BTN_H;
-  let plusW   = BTN_H;
-  let exportW = ceil(textWidth("Export") + BTN_PAD * 2);
-
-  // Build ordered button list
-  let btns = [];
-
-  btns.push({ label: "Onion Skinning", x, y: barY, w: onionW, active: showOnionSkin, ref: "onion" });
-  x += onionW;
-
-  btns.push({ label: str(fps) + " FPS", x, y: barY, w: fpsW, active: false, ref: "fps" });
-  x += fpsW;
-
-  btns.push({ label: "", x, y: barY, w: playW, active: false, ref: "play" });
-  x += playW;
-
-  for (let i = 0; i < frames.length; i++) {
-    btns.push({ label: str(i + 1), x, y: barY, w: frameW, active: i === currentFrame, ref: "frame_" + i });
-    x += frameW;
-  }
-
-  btns.push({ label: "+", x, y: barY, w: plusW, active: false, ref: "plus" });
-  x += plusW;
-
-  btns.push({ label: "Export", x, y: barY, w: exportW, active: false, ref: "export" });
-
-  // Hover states
-  for (let b of btns) {
-    let inB = mouseX >= b.x && mouseX < b.x + b.w && mouseY >= barY && mouseY < barY + BTN_H;
-    if (b.ref === "onion") {
-      if (!inB) onionJustToggled = false;
-      b.hov = inB && !onionJustToggled;
-    } else {
-      b.hov = inB;
-    }
-  }
-
-  // Update hit areas
-  hitOnion = hitFPS = hitPlay = hitPlus = hitExport = null;
-  hitFramesBtns      = new Array(frames.length).fill(null);
-  hitFrameDeleteBtns = new Array(frames.length).fill(null);
-
-  for (let b of btns) {
-    let hr = { x: b.x, y: barY, w: b.w, h: BTN_H };
-    if      (b.ref === "onion")  hitOnion  = hr;
-    else if (b.ref === "fps") {
-      hitFPS = hr;
-      if (fpsFocused) {
-        let off = canvasScreenOffset();
-        fpsOverlay.style.left   = (hitFPS.x + off.x) + "px";
-        fpsOverlay.style.top    = (hitFPS.y + off.y) + "px";
-        fpsOverlay.style.width  = hitFPS.w + "px";
-        fpsOverlay.style.height = hitFPS.h + "px";
-      }
-    }
-    else if (b.ref === "play")   hitPlay   = hr;
-    else if (b.ref === "plus")   hitPlus   = hr;
-    else if (b.ref === "export") hitExport = hr;
-    else if (b.ref.startsWith("frame_")) {
-      let fi = parseInt(b.ref.split("_")[1]);
-      hitFramesBtns[fi] = hr;
-      if (frames.length > 1) {
-        hitFrameDeleteBtns[fi] = { x: b.x + b.w - 14, y: barY + 4, w: 12, h: 12 };
-      }
-    }
-  }
-
-  // Draw buttons
-  for (let b of btns) {
-    if (b.ref === "play") {
-      drawBtn_BW(b.x, b.y, b.w, BTN_H, false, b.hov, (on) => {
-        fill(on ? 0 : 255);
-        noStroke();
-        if (isPlaying) {
-          rect(b.x + 14, b.y + 12.5, 6, 20);
-          rect(b.x + 24, b.y + 12.5, 6, 20);
-        } else {
-          triangle(b.x + 14, b.y + 12.1, b.x + 14, b.y + 32.9, b.x + 32, b.y + 22.5);
-        }
-      });
-    } else {
-      textBtn_BW(b.x, b.y, b.w, BTN_H, b.label, b.active, b.hov && !b.active);
-    }
-  }
-
-  // Frame delete × — shown when hovering the frame button
-  textFont(ANIM_FONT);
-  textSize(9);
-  textAlign(RIGHT, TOP);
-  for (let i = 0; i < frames.length; i++) {
-    let fb = hitFramesBtns[i];
-    if (!fb) continue;
-    let zoneHov = mouseX >= fb.x && mouseX < fb.x + fb.w &&
-                  mouseY >= barY && mouseY < barY + BTN_H;
-    if (frames.length > 1 && zoneHov) {
-      let isOn = (i === currentFrame) || zoneHov;
-      fill(isOn ? 0 : 255);
-      noStroke();
-      text("×", fb.x + fb.w - 4, barY + 4);
-    }
-  }
-  textAlign(LEFT, BASELINE); // reset
+  buildStrip();
 }
 
 // --------------------------------------------------------------
@@ -1218,82 +915,33 @@ async function exportFrames() {
 }
 
 // --------------------------------------------------------------
+// FILE LOADING
+// --------------------------------------------------------------
+
+function _loadImageFiles(fileList) {
+  let count = fileList.length, imgs = new Array(count), loaded = 0;
+  for (let i = 0; i < count; i++) {
+    ((idx) => loadImage(URL.createObjectURL(fileList[idx]), img => {
+      imgs[idx] = img;
+      if (++loaded === count) {
+        refImages = imgs;
+        hasImages = true;
+        imgOpacity = 255;
+        document.getElementById('opacity-slider').value = '100';
+        _updateImageToolbar();
+        let need = min(count, 24);
+        while (frames.length < need) addFrame();
+        switchFrame(0);
+      }
+    }))(i);
+  }
+}
+
+// --------------------------------------------------------------
 // MOUSE
 // --------------------------------------------------------------
 
 function mousePressed() {
-  // Commit any open FPS edit when clicking outside the FPS button
-  if (fpsFocused && !_hitTest(hitFPS, mouseX, mouseY)) commitFPS();
-
-  // Top bar
-  if (inTopBar(mouseX, mouseY)) {
-    if (_hitTest(hitClearFrame, mouseX, mouseY)) {
-      clearGrid(); pushUndo(); return;
-    }
-    if (_hitTest(hitShowGuides, mouseX, mouseY)) {
-      if (showGuides) guidesJustToggled = true;
-      showGuides = !showGuides; return;
-    }
-    if (_hitTest(hitUpload, mouseX, mouseY)) {
-      if (hasImages) {
-        refImages = []; hasImages = false;
-      } else {
-        fileInput.click();
-      }
-      return;
-    }
-    return;
-  }
-
-  // Bottom bar
-  if (inBottomBar(mouseX, mouseY)) {
-    // Frame delete × — check before frame select so small target wins
-    for (let i = 0; i < hitFrameDeleteBtns.length; i++) {
-      if (_hitTest(hitFrameDeleteBtns[i], mouseX, mouseY)) {
-        deleteFrame(i); return;
-      }
-    }
-    if (_hitTest(hitFPS, mouseX, mouseY)) {
-      fpsFocused = true;
-      fpsInput.value = str(fps);
-      let off = canvasScreenOffset();
-      fpsOverlay.style.display = "flex";
-      fpsOverlay.style.left    = (hitFPS.x + off.x) + "px";
-      fpsOverlay.style.top     = (hitFPS.y + off.y) + "px";
-      fpsOverlay.style.width   = hitFPS.w + "px";
-      fpsOverlay.style.height  = hitFPS.h + "px";
-      setTimeout(() => { fpsInput.focus(); fpsInput.select(); }, 0);
-      return;
-    }
-    if (_hitTest(hitOnion, mouseX, mouseY)) {
-      if (showOnionSkin) onionJustToggled = true;
-      showOnionSkin = !showOnionSkin;
-      return;
-    }
-    if (_hitTest(hitPlay, mouseX, mouseY)) {
-      if (!isPlaying) {
-        frames[currentFrame]          = captureGrid();
-        frameUndoStacks[currentFrame] = undoStack;
-      }
-      isPlaying    = !isPlaying;
-      playElapsed  = 0;
-      return;
-    }
-    if (_hitTest(hitPlus, mouseX, mouseY)) {
-      addFrame(); return;
-    }
-    if (_hitTest(hitExport, mouseX, mouseY)) {
-      exportFrames(); return;
-    }
-    for (let i = 0; i < hitFramesBtns.length; i++) {
-      if (_hitTest(hitFramesBtns[i], mouseX, mouseY)) {
-        switchFrame(i); return;
-      }
-    }
-    return;
-  }
-
-  // Toolbar
   let ti = getToolbarIndex();
   if (ti >= 0) {
     setTool([...brushes, "ERASER", "SELECTION"][ti]);
@@ -1302,10 +950,9 @@ function mousePressed() {
 
   if (!sKeyDown && !selectionMode) clearSelection();
 
-  // Initialise straight-line start cell when Shift is held
   if (shiftDown) {
     let ci = floor((mouseX - gridOffX) / cs);
-    let cj = floor(mouseY / cs);
+    let cj = floor((mouseY - gridOffY) / cs);
     if (ci >= 0 && ci < gridSize && cj >= 0 && cj < gridRows) {
       lineStartI = ci; lineStartJ = cj; lineAxis = null;
     }
@@ -1315,8 +962,6 @@ function mousePressed() {
 function mouseReleased() {
   lineStartI = -1; lineStartJ = -1; lineAxis = null;
   if (hKeyDown) return;
-  if (inTopBar(mouseX, mouseY)) return;
-  if (inBottomBar(mouseX, mouseY)) return;
   if (getToolbarIndex() >= 0) return;
   if (mouseX >= 0 && mouseX < width && mouseY >= gridOffY && mouseY < gridOffY + GRID_H) {
     pushUndo();
@@ -1342,7 +987,7 @@ function _applyPan() {
 // --------------------------------------------------------------
 
 function keyPressed() {
-  if (fpsFocused) return;
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
 
   switch (key) {
     case '1': setTool("RECTANGLE");         break;
@@ -1363,10 +1008,13 @@ function keyPressed() {
     case '.': scaleGrid(1); break;
     case 'f': case 'F': addFrame(); break;
     case 'o': case 'O':
-      if (showOnionSkin) onionJustToggled = true;
       showOnionSkin = !showOnionSkin;
+      document.getElementById('onion-btn').classList.toggle('active', showOnionSkin);
       break;
-    case 'g': case 'G': showGuides = !showGuides; break;
+    case 'g': case 'G':
+      showGuides = !showGuides;
+      document.getElementById('guides-btn').classList.toggle('active', showGuides);
+      break;
   }
   if (keyCode === 16) shiftDown = true;
   if (keyCode === 27) { clearSelection(); selectionMode = false; }

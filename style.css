@@ -67,14 +67,14 @@ button:disabled                      { opacity: 0.35; cursor: not-allowed; }
   align-items: center;
   outline: 1px solid white;
   outline-offset: -1px;
-  padding: 0 10px;
+  padding: 0 12px;
   color: white;
   cursor: pointer;
   height: 100%;
   flex-shrink: 0;
   transition: background 0.1s, color 0.1s;
   margin: 0 -1px;
-  gap: 0;
+  gap: 4px;
 }
 #fps-group:hover                       { background: white; color: black; }
 #fps-group:hover #fps-input,

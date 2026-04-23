@@ -39,9 +39,10 @@ canvas { display: block; flex-shrink: 0; }
 /* ── Buttons ───────────────────────────────── */
 button {
   background: black;
-  border: none;
-  outline: 1px solid white;
-  outline-offset: -1px;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  border-left: 1px solid white;
+  border-right: 1px solid white;
   color: white;
   padding: 0 10px;
   font-family: 'Roboto Mono', monospace;
@@ -65,8 +66,10 @@ button:disabled                      { opacity: 0.35; cursor: not-allowed; }
 #fps-group {
   display: flex;
   align-items: center;
-  outline: 1px solid white;
-  outline-offset: -1px;
+  border-top: 1px solid transparent;
+  border-bottom: 1px solid transparent;
+  border-left: 1px solid white;
+  border-right: 1px solid white;
   padding: 0 12px;
   color: white;
   cursor: pointer;

@@ -157,10 +157,9 @@ function _setupHTML() {
 
 function _updateImageToolbar() {
   document.getElementById('upload-btn').textContent = hasImages ? 'Remove IMG' : 'Upload IMG';
-  let lbl = document.getElementById('opacity-label');
+  let grp = document.getElementById('opacity-group');
   let sl  = document.getElementById('opacity-slider');
-  lbl.style.display = hasImages ? 'flex' : 'none';
-  sl.style.display  = hasImages ? ''     : 'none';
+  grp.style.display = hasImages ? 'flex' : 'none';
   if (hasImages) sl.value = Math.round(imgOpacity / 255 * 100);
 }
 

@@ -14,8 +14,10 @@
         <button id="clear-btn">Clear Frame</button>
         <button id="guides-btn">Show Guides</button>
         <button id="upload-btn">Upload IMG</button>
-        <span id="opacity-label" style="display:none">Opacity</span>
-        <input type="range" id="opacity-slider" class="opacity-slider" min="0" max="100" value="100" style="display:none">
+        <div id="opacity-group" style="display:none">
+          <span id="opacity-label">Opacity</span>
+          <input type="range" id="opacity-slider" class="opacity-slider" min="0" max="100" value="100">
+        </div>
         <input type="file" id="file-input" accept="image/*" multiple style="display:none">
       </div>
       <!-- p5 canvas inserted here by setup() -->

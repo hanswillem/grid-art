@@ -134,17 +134,19 @@ button:disabled                      { opacity: 0.35; cursor: not-allowed; }
 #add-frame-btn { width: 45px; padding: 0; }
 
 /* ── Opacity area ──────────────────────────── */
-#opacity-label {
-  padding: 0 8px;
-  align-self: center;
-  pointer-events: none;
-  flex-shrink: 0;
-  outline: 1px solid white;
-  outline-offset: -1px;
-  height: 100%;
+#opacity-group {
   display: flex;
   align-items: center;
+  height: 100%;
+  outline: 1px solid white;
+  outline-offset: -1px;
   margin: 0 -1px 0 0;
+  flex-shrink: 0;
+}
+#opacity-label {
+  padding: 0 8px;
+  pointer-events: none;
+  flex-shrink: 0;
 }
 .opacity-slider {
   -webkit-appearance: none;
@@ -153,10 +155,9 @@ button:disabled                      { opacity: 0.35; cursor: not-allowed; }
   cursor: pointer;
   outline: none;
   padding: 0;
-  margin: 0 8px;
+  margin: 0 12px 0 0;
   width: 100px;
   flex-shrink: 0;
-  align-self: center;
 }
 .opacity-slider::-webkit-slider-runnable-track { height: 1px; background: white; }
 .opacity-slider::-webkit-slider-thumb {

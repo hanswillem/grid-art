@@ -91,8 +91,7 @@ button:disabled                      { opacity: 0.35; cursor: not-allowed; }
   font-size: 12px;
   field-sizing: content;
   min-width: 8px;
-  width: 2ch;
-  text-align: right;
+  text-align: center;
   outline: none;
   padding: 0;
   caret-color: white;

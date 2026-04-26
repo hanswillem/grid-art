@@ -49,6 +49,8 @@ function setup() {
     }
     if (e.key === 'ArrowLeft')  { e.preventDefault(); switchFrameWrapped(-1); return; }
     if (e.key === 'ArrowRight') { e.preventDefault(); switchFrameWrapped( 1); return; }
+    if (e.key.toLowerCase() === 'a') { e.preventDefault(); switchFrameWrapped(-1); return; }
+    if (e.key.toLowerCase() === 'd') { e.preventDefault(); switchFrameWrapped( 1); return; }
     if (e.key === 'Backspace') {
       e.preventDefault();
       if (!isPlaying) {

@@ -47,8 +47,8 @@ function setup() {
       togglePlay();
       return;
     }
-    if (e.key === 'ArrowLeft')  { e.preventDefault(); switchFrame(currentFrame - 1); return; }
-    if (e.key === 'ArrowRight') { e.preventDefault(); switchFrame(currentFrame + 1); return; }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); switchFrameWrapped(-1); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); switchFrameWrapped( 1); return; }
     if (e.key === 'Backspace') {
       e.preventDefault();
       if (!isPlaying) {
@@ -785,6 +785,11 @@ function switchFrame(newIdx) {
   restoreGrid(frames[currentFrame]);
   clearSelection();
   _highlightActiveFrame();
+}
+
+function switchFrameWrapped(delta) {
+  if (frames.length <= 1) return;
+  switchFrame((currentFrame + delta + frames.length) % frames.length);
 }
 
 function addFrame() {
